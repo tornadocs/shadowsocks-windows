@@ -1,15 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Drawing;
-using System.Text;
 using System.Windows.Forms;
-using System.Diagnostics;
-using Microsoft.Win32;
 using Shadowsocks.Controller;
 using Shadowsocks.Model;
 using Shadowsocks.Properties;
-using System.Threading.Tasks;
 
 namespace Shadowsocks.View
 {
@@ -32,6 +26,7 @@ namespace Shadowsocks.View
             this.PerformLayout();
 
             UpdateTexts();
+            SetupValueChangedListeners();
             this.Icon = Icon.FromHandle(Resources.ssw128.GetHicon());
 
             this.controller = controller;
@@ -62,14 +57,35 @@ namespace Shadowsocks.View
             ServerGroupBox.Text = I18N.GetString("Server");
             OKButton.Text = I18N.GetString("OK");
             MyCancelButton.Text = I18N.GetString("Cancel");
+            ApplyButton.Text = I18N.GetString("Apply");
             MoveUpButton.Text = I18N.GetString("Move &Up");
             MoveDownButton.Text = I18N.GetString("Move D&own");
             this.Text = I18N.GetString("Edit Servers");
         }
 
+        private void SetupValueChangedListeners()
+        {
+            IPTextBox.TextChanged += ConfigValueChanged;
+            ProxyPortTextBox.TextChanged += ConfigValueChanged;
+            PasswordTextBox.TextChanged += ConfigValueChanged;
+            EncryptionSelect.SelectedIndexChanged += ConfigValueChanged;
+            PluginTextBox.TextChanged += ConfigValueChanged;
+            PluginArgumentsTextBox.TextChanged += ConfigValueChanged;
+            PluginOptionsTextBox.TextChanged += ConfigValueChanged;
+            RemarksTextBox.TextChanged += ConfigValueChanged;
+            TimeoutTextBox.TextChanged += ConfigValueChanged;
+            PortableModeCheckBox.CheckedChanged += ConfigValueChanged;
+            ServerPortTextBox.TextChanged += ConfigValueChanged;
+        }
+
         private void controller_ConfigChanged(object sender, EventArgs e)
         {
             LoadCurrentConfiguration();
+        }
+
+        private void ConfigValueChanged(object sender, EventArgs e)
+        {
+            ApplyButton.Enabled = true;
         }
 
         private bool ValidateAndSaveSelectedServerDetails()
@@ -186,6 +202,7 @@ namespace Shadowsocks.View
             LoadSelectedServerDetails();
             ProxyPortTextBox.Text = _modifiedConfiguration.localPort.ToString();
             PortableModeCheckBox.Checked = _modifiedConfiguration.portableMode;
+            ApplyButton.Enabled = false;
         }
 
         private bool SaveValidConfiguration()
@@ -256,8 +273,7 @@ namespace Shadowsocks.View
             {
                 return;
             }
-            Server server = Configuration.GetDefaultServer();
-            _modifiedConfiguration.configs.Add(server);
+            Configuration.AddDefaultServerOrServer(_modifiedConfiguration);
             LoadServerNameListToUI(_modifiedConfiguration);
             ServersListBox.SelectedIndex = _modifiedConfiguration.configs.Count - 1;
             _lastSelectedIndex = ServersListBox.SelectedIndex;
@@ -265,7 +281,8 @@ namespace Shadowsocks.View
 
         private void DuplicateButton_Click(object sender, EventArgs e)
         {
-            if (!ValidateAndSaveSelectedServerDetails())
+            if (_lastSelectedIndex == -1 || _lastSelectedIndex > _modifiedConfiguration.configs.Count
+                || !ValidateAndSaveSelectedServerDetails())
             {
                 return;
             }
@@ -284,6 +301,10 @@ namespace Shadowsocks.View
             {
                 _modifiedConfiguration.configs.RemoveAt(_lastSelectedIndex);
             }
+            if (_modifiedConfiguration.configs.Count == 0)
+            {
+                Configuration.AddDefaultServerOrServer(_modifiedConfiguration);
+            }
             if (_lastSelectedIndex >= _modifiedConfiguration.configs.Count)
             {
                 // can be -1
@@ -293,6 +314,8 @@ namespace Shadowsocks.View
             LoadServerNameListToUI(_modifiedConfiguration);
             ServersListBox.SelectedIndex = _lastSelectedIndex;
             LoadSelectedServerDetails();
+
+            UpdateButtons();
         }
 
         private void OKButton_Click(object sender, EventArgs e)
@@ -306,6 +329,11 @@ namespace Shadowsocks.View
         private void CancelButton_Click(object sender, EventArgs e)
         {
             this.Close();
+        }
+
+        private void ApplyButton_Click(object sender, EventArgs e)
+        {
+            SaveValidConfiguration();
         }
 
         private void ConfigForm_Shown(object sender, EventArgs e)
